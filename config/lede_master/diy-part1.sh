@@ -13,17 +13,15 @@
 # rm -rf package/lean/{samba4,luci-app-samba4,luci-app-ttyd}
 
 # ------------------------------- Custom feeds started -------------------------------
-# iStoreOS style homepage + app store
-echo 'src-git istore https://github.com/linkease/istore.git;main' >>feeds.conf.default
-echo 'src-git nas https://github.com/linkease/nas-packages.git;master' >>feeds.conf.default
+# Note: only feeds with a STANDARD root-level package layout are added here.
+# Non-standard repos (nested dirs) are cloned manually in diy-part2.sh instead.
 
-# Themes
+# Argon theme (root-level luci-theme-argon)
 echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon.git;master' >>feeds.conf.default
-echo 'src-git kucat https://github.com/sirpdboy/luci-theme-kucat.git;main' >>feeds.conf.default
 
-# OpenClash
+# Kucat theme (branch is master, NOT main)
+echo 'src-git kucat https://github.com/sirpdboy/luci-theme-kucat.git;master' >>feeds.conf.default
+
+# OpenClash (root-level luci-app-openclash)
 echo 'src-git openclash https://github.com/vernesong/OpenClash.git;dev' >>feeds.conf.default
-
-# Advanced settings (luci-app-advancedplus)
-echo 'src-git advancedplus https://github.com/sirpdboy/luci-app-advancedplus.git;main' >>feeds.conf.default
 # ------------------------------- Custom feeds ended -------------------------------
