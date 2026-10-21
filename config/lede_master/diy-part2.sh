@@ -30,71 +30,76 @@ echo "DISTRIB_SOURCEBRANCH='master'" >>package/base-files/files/etc/openwrt_rele
 #
 # ------------------------------- Main source ends -------------------------------
 
-# ------------------------------- Other started -------------------------------
-#
-# Add luci-app-amlogic
-rm -rf package/luci-app-amlogic
-git clone -b main --depth 1 https://github.com/ophub/luci-app-amlogic.git package/luci-app-amlogic
+# Prepare an overlay dir that gets merged into the rootfs
+OVERLAY="${PWD}/files"
+mkdir -p "${OVERLAY}"
 
 # ---------------------------------------------------------------------------------
-# Custom: packages whose upstream repos do NOT have a standard feed layout.
-# They must be cloned manually and placed where the build system can find them.
+# Custom: install prebuilt (_all / arch-independent) ipk packages into the rootfs.
+# Repos whose layout does not fit the OpenWrt feed model are pulled this way,
+# because compiling them against LEDE's old LuCI fails.
 # ---------------------------------------------------------------------------------
+IPKDIR=/tmp/custom-ipk
+rm -rf "${IPKDIR}" && mkdir -p "${IPKDIR}"
 
-# --- 1. iStore / iStoreOS app store -------------------------------------------------
-# upstream layout:  luci/luci-app-store , luci/luci-lib-taskd , luci/luci-lib-xterm , luci/taskd
-rm -rf /tmp/istore-src
-git clone -b main --depth 1 https://github.com/linkease/istore.git /tmp/istore-src
-mkdir -p package/custom
-for p in luci-app-store luci-lib-taskd luci-lib-xterm taskd; do
-    if [ -d "/tmp/istore-src/luci/$p" ]; then
-        rm -rf "package/custom/$p"
-        cp -r "/tmp/istore-src/luci/$p" "package/custom/$p"
-        echo "istore: installed $p"
+fetch_ipk() {
+    # $1 = url, $2 = local filename
+    if wget -q --no-check-certificate -T 60 -O "${IPKDIR}/$2" "$1"; then
+        [ -s "${IPKDIR}/$2" ] && echo "OK   $2" && return 0
+    fi
+    rm -f "${IPKDIR}/$2"
+    echo "FAIL $2"
+    return 1
+}
+
+# --- Kucat theme + its config app (upstream uses ucode = LuCI 23.05+, unusable on LEDE)
+fetch_ipk "https://github.com/sirpdboy/luci-theme-kucat/releases/download/v3.3.0/luci-theme-kucat_3.3.0-r20260227_all.ipk" "kucat.ipk"
+fetch_ipk "https://github.com/sirpdboy/luci-app-kucat-config/releases/download/v2.2.0/luci-app-kucat-config_2.2.0-r20260227_all.ipk" "kucatcfg.ipk"
+fetch_ipk "https://github.com/sirpdboy/luci-app-kucat-config/releases/download/v2.2.0/luci-i18n-kucat-config-zh-cn_0_all.ipk" "kucatcfg-zh.ipk"
+
+# --- iStore app store (arch-independent pure-Lua packages from the public iStore repo)
+fetch_ipk "https://istore.linkease.com/repo/all/nas_luci/luci-app-store_latest_all.ipk" "luci-app-store.ipk"
+
+# ---------------------------------------------------------------------------------
+# Unpack every ipk into the overlay (data.tar.gz only, no dependency resolution).
+# ---------------------------------------------------------------------------------
+for ipk in "${IPKDIR}"/*.ipk; do
+    [ -f "$ipk" ] || continue
+    work=/tmp/ipkx
+    rm -rf "$work" && mkdir -p "$work"
+    if tar -xzf "$ipk" -C "$work" 2>/dev/null && [ -f "$work/data.tar.gz" ]; then
+        tar -xzf "$work/data.tar.gz" -C "${OVERLAY}" 2>/dev/null && echo "unpacked: $(basename "$ipk")" || echo "unpack-data FAILED: $(basename "$ipk")"
     else
-        echo "istore: MISSING $p"
+        echo "unpack FAILED: $(basename "$ipk")"
     fi
 done
 
-# --- 2. AdvancedPlus (advanced settings) --------------------------------------------
-# upstream layout: repo ROOT is the package itself (.github doc luasrc po root)
+# Keep LuCI config menu entries pointing at the kucat theme
+mkdir -p "${OVERLAY}/etc/uci-defaults"
+cat >"${OVERLAY}/etc/uci-defaults/99-custom-theme" <<'EOT'
+#!/bin/sh
+uci -q set luci.main.mediaurlbase='/luci-static/kucat'
+uci -q commit luci
+exit 0
+EOT
+chmod +x "${OVERLAY}/etc/uci-defaults/99-custom-theme"
+
+# --- AdvancedPlus (advanced settings) ----------------------------------------------
+# Repo root IS the package itself; clone directly into package/custom/.
 rm -rf package/custom/luci-app-advancedplus
-git clone -b main --depth 1 https://github.com/sirpdboy/luci-app-advancedplus.git package/custom/luci-app-advancedplus
+mkdir -p package/custom
+git clone -b main --depth 1 https://github.com/sirpdboy/luci-app-advancedplus.git package/custom/luci-app-advancedplus 2>/dev/null \
+    || echo "advancedplus: clone FAILED"
 
-# --- 3. quickstart / luci-app-linkease ----------------------------------------------
-# From linkease/nas-packages (only multimedia + network at root; quickstart lives
-# under network/services on some branches). Try to locate and copy if present.
-rm -rf /tmp/nas-src
-git clone -b master --depth 1 https://github.com/linkease/nas-packages.git /tmp/nas-src 2>/dev/null || true
-if [ -d /tmp/nas-src ]; then
-    found=""
-    for cand in /tmp/nas-src/network/services/quickstart /tmp/nas-src/quickstart /tmp/nas-src/luci-app-quickstart; do
-        if [ -d "$cand" ]; then found="$cand"; break; fi
-    done
-    if [ -n "$found" ]; then
-        rm -rf package/custom/quickstart
-        cp -r "$found" package/custom/quickstart
-        echo "nas: installed quickstart from $found"
-    else
-        echo "nas: quickstart NOT FOUND - skipping"
-    fi
-    # ffmpeg-remux and other multimedia helpers
-    for cand in /tmp/nas-src/multimedia/ffmpeg-remux; do
-        if [ -d "$cand" ]; then
-            cp -r "$cand" package/custom/ 2>/dev/null || true
-        fi
-    done
-fi
-
-# --- 4. OpenClash: drop the prebuilt cores (useless for armsr, keeps image small) ----
+# --- OpenClash: drop the prebuilt cores (useless for armsr, keeps image small) ----
 rm -rf feeds/openclash/luci-app-openclash/root/etc/openclash/core 2>/dev/null || true
 
-# --- 5. Make sure luci-compat is available (advancedplus depends on it) -------------
+# --- Make sure luci-compat is available (advancedplus depends on it) -------------
 sed -i 's/# CONFIG_PACKAGE_luci-compat is not set/CONFIG_PACKAGE_luci-compat=y/g' .config 2>/dev/null || true
 grep -q '^CONFIG_PACKAGE_luci-compat=y' .config || echo 'CONFIG_PACKAGE_luci-compat=y' >>.config
 
-echo "=== custom package tree ==="
-ls -1 package/custom/ 2>/dev/null || true
+echo "=== overlay tree ==="
+find "${OVERLAY}" -maxdepth 2 -type d 2>/dev/null | head -40
 #
 # Apply patch
 # git apply ../config/patches/{0001*,0002*}.patch --directory=feeds/luci

@@ -13,14 +13,11 @@
 # rm -rf package/lean/{samba4,luci-app-samba4,luci-app-ttyd}
 
 # ------------------------------- Custom feeds started -------------------------------
-# Note: only feeds with a STANDARD root-level package layout are added here.
-# Non-standard repos (nested dirs) are cloned manually in diy-part2.sh instead.
+# Only feeds with a STANDARD root-level package layout are added here.
+# Non-standard repos (nested dirs / ucode-based) are handled in diy-part2.sh as ipk.
 
 # Argon theme (root-level luci-theme-argon)
 echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon.git;master' >>feeds.conf.default
-
-# Kucat theme (branch is master, NOT main)
-echo 'src-git kucat https://github.com/sirpdboy/luci-theme-kucat.git;master' >>feeds.conf.default
 
 # OpenClash (root-level luci-app-openclash)
 echo 'src-git openclash https://github.com/vernesong/OpenClash.git;dev' >>feeds.conf.default
