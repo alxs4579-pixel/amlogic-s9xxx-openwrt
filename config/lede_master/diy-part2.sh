@@ -57,8 +57,16 @@ fetch_ipk "https://github.com/sirpdboy/luci-theme-kucat/releases/download/v3.3.0
 fetch_ipk "https://github.com/sirpdboy/luci-app-kucat-config/releases/download/v2.2.0/luci-app-kucat-config_2.2.0-r20260227_all.ipk" "kucatcfg.ipk"
 fetch_ipk "https://github.com/sirpdboy/luci-app-kucat-config/releases/download/v2.2.0/luci-i18n-kucat-config-zh-cn_0_all.ipk" "kucatcfg-zh.ipk"
 
-# --- iStore app store (arch-independent pure-Lua packages from the public iStore repo)
-fetch_ipk "https://istore.linkease.com/repo/all/nas_luci/luci-app-store_latest_all.ipk" "luci-app-store.ipk"
+# --- iStore app store + quickstart homepage (verified: all arch=all)
+fetch_ipk "https://istore.linkease.com/repo/all/store/luci-lib-xterm_4.18.0_all.ipk" "luci-lib-xterm.ipk"
+fetch_ipk "https://istore.linkease.com/repo/all/store/taskd_1.0.3-2_all.ipk" "taskd.ipk"
+fetch_ipk "https://istore.linkease.com/repo/all/store/luci-lib-taskd_1.0.26_all.ipk" "luci-lib-taskd.ipk"
+fetch_ipk "https://istore.linkease.com/repo/all/store/luci-app-store_0.2.1-r1_all.ipk" "luci-app-store.ipk"
+fetch_ipk "https://istore.linkease.com/repo/all/nas_luci/luci-app-quickstart_0.12.10-r1_all.ipk" "luci-app-quickstart.ipk"
+fetch_ipk "https://istore.linkease.com/repo/all/nas_luci/luci-i18n-quickstart-zh-cn_git-26.247.42887-c3af221_all.ipk" "quickstart-zh.ipk"
+# quickstart backend binary: only published for aarch64_cortex-a53, NOT for armsr-armv8.
+# It usually runs on S922X (A73/A53 big.LITTLE) but may fail on musl ABI mismatch.
+fetch_ipk "https://istore.linkease.com/repo/aarch64_cortex-a53/nas/quickstart_0.13.0-1_aarch64_cortex-a53.ipk" "quickstart-bin.ipk"
 
 # ---------------------------------------------------------------------------------
 # Unpack every ipk into the overlay (data.tar.gz only, no dependency resolution).
@@ -74,12 +82,26 @@ for ipk in "${IPKDIR}"/*.ipk; do
     fi
 done
 
-# Keep LuCI config menu entries pointing at the kucat theme
+# Default theme + homepage handling
 mkdir -p "${OVERLAY}/etc/uci-defaults"
 cat >"${OVERLAY}/etc/uci-defaults/99-custom-theme" <<'EOT'
 #!/bin/sh
+# Default theme
 uci -q set luci.main.mediaurlbase='/luci-static/kucat'
 uci -q commit luci
+
+# quickstart homepage: only enable if the backend binary actually runs
+if [ -x /usr/sbin/quickstart ] || command -v quickstart >/dev/null 2>&1; then
+    if quickstart --help >/dev/null 2>&1 || [ -f /etc/config/quickstart ]; then
+        uci -q set luci.main.mediaurlbase='/luci-static/kucat'
+        uci -q commit luci
+        echo "quickstart backend available"
+    else
+        echo "quickstart backend present but not runnable - keeping stock LuCI"
+    fi
+else
+    echo "quickstart backend missing - keeping stock LuCI"
+fi
 exit 0
 EOT
 chmod +x "${OVERLAY}/etc/uci-defaults/99-custom-theme"
