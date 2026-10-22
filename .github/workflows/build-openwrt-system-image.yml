@@ -490,6 +490,12 @@ jobs:
         run: |
           cd openwrt/
           make defconfig
+          # docker config must be injected AFTER defconfig, otherwise the
+          # package symbols get stripped from .config before the build starts
+          if [ -f "${GITHUB_WORKSPACE}/${DIY_P2_SH%.sh}-docker.sh" ]; then
+            sh "${GITHUB_WORKSPACE}/${DIY_P2_SH%.sh}-docker.sh"
+            make defconfig
+          fi
           make download -j8
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
