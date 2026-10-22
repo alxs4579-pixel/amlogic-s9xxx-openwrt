@@ -1,4 +1,4 @@
-#
+﻿#
 # Automatically generated file; DO NOT EDIT.
 # LEDE Configuration
 #
@@ -7717,7 +7717,6 @@ CONFIG_PACKAGE_acpid=y
 # CONFIG_PACKAGE_colrm is not set
 # CONFIG_PACKAGE_column is not set
 # CONFIG_PACKAGE_conmon is not set
-CONFIG_PACKAGE_containerd=y
 CONFIG_PACKAGE_coremark=y
 CONFIG_COREMARK_OPTIMIZE_O3=y
 CONFIG_COREMARK_ENABLE_MULTITHREADING=y
@@ -8019,7 +8018,6 @@ CONFIG_PACKAGE_pv=y
 # CONFIG_PACKAGE_rtl-sdr is not set
 # CONFIG_PACKAGE_rtl_433 is not set
 # CONFIG_PACKAGE_rtl_433-ssl is not set
-CONFIG_PACKAGE_runc=y
 # CONFIG_PACKAGE_sane-backends is not set
 # CONFIG_PACKAGE_sane-daemon is not set
 # CONFIG_PACKAGE_sane-frontends is not set
@@ -8153,12 +8151,6 @@ CONFIG_PACKAGE_uuidgen=y
 # NOTE: luci-app-store / kucat theme are injected as prebuilt ipk via diy-part2.sh
 # (overlay files/), so they must NOT be selected in kconfig.
 CONFIG_PACKAGE_luci-app-advancedplus=y
-CONFIG_PACKAGE_docker=y
-CONFIG_PACKAGE_dockerd=y
-CONFIG_PACKAGE_docker-compose=y
-CONFIG_PACKAGE_luci-app-dockerman=y
-CONFIG_PACKAGE_kmod-ipt-physdev=y
-CONFIG_PACKAGE_kmod-nf-ipvs=y
 CONFIG_PACKAGE_kmod-vxlan=y
 CONFIG_PACKAGE_kmod-ipsec=y
 CONFIG_PACKAGE_kmod-ipt-ipset=y

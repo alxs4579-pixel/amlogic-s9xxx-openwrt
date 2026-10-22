@@ -127,28 +127,3 @@ find "${OVERLAY}" -maxdepth 2 -type d 2>/dev/null | head -40
 # git apply ../config/patches/{0001*,0002*}.patch --directory=feeds/luci
 #
 # ------------------------------- Other ends -------------------------------
-
-# ---------- Docker: keep images off the small eMMC ----------
-# DOCKER-DATA-ROOT-GUARD
-mkdir -p "${OVERLAY}/etc/uci-defaults"
-cat >"${OVERLAY}/etc/uci-defaults/98-docker-root" <<'EOT'
-#!/bin/sh
-# Prefer an external mount for docker storage on devices with a small eMMC.
-DATA_ROOT=""
-for m in /mnt/sda1 /mnt/sda2 /mnt/mmcblk1p1 /mnt/usb; do
-    if mountpoint -q "$m" 2>/dev/null; then
-        DATA_ROOT="$m/docker"
-        break
-    fi
-done
-if [ -n "$DATA_ROOT" ]; then
-    mkdir -p "$DATA_ROOT"
-    uci -q set dockerd.globals.data_root="$DATA_ROOT"
-    uci -q commit dockerd
-    echo "dockerd data_root -> $DATA_ROOT"
-else
-    echo "dockerd data_root: no external mount, kept on eMMC"
-fi
-exit 0
-EOT
-chmod +x "${OVERLAY}/etc/uci-defaults/98-docker-root"
