@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 #========================================================================================================================
 # https://github.com/ophub/amlogic-s9xxx-openwrt
 # Description: Automatically Build OpenWrt
@@ -128,6 +128,48 @@ find "${OVERLAY}" -maxdepth 2 -type d 2>/dev/null | head -40
 #
 # ------------------------------- Other ends -------------------------------
 
+# DOCKER-FORCE-CONFIG
+# ---------- Docker: force-enable the whole stack in .config ----------
+# Runs AFTER `make defconfig`, so these lines survive into the final build.
+# LEDE drops invalid CONFIG_PACKAGE_* entries when the symbol does not exist,
+# therefore every package listed here must be present in the enabled feeds.
+dockerd_pkgs="
+luci-app-dockerman
+luci-i18n-dockerman-zh-cn
+luci-lib-docker
+dockerd
+docker
+docker-compose
+containerd
+runc
+libnetwork
+tini
+blkid
+block-mount
+blockd
+kmod-veth
+kmod-br-netfilter
+kmod-nf-nat
+kmod-ipt-ipset
+kmod-ipt-physdev
+kmod-nf-ipvs
+iptables
+iptables-mod-extra
+iptables-mod-nat-extra
+nftables-json
+jansson4
+"
+for p in $dockerd_pkgs; do
+    sed -i "/^# CONFIG_PACKAGE_${p} is not set/d" .config
+    grep -q "^CONFIG_PACKAGE_${p}=y" .config || echo "CONFIG_PACKAGE_${p}=y" >>.config
+    grep -q "^CONFIG_PACKAGE_${p}=m" .config && sed -i "s/^CONFIG_PACKAGE_${p}=m/CONFIG_PACKAGE_${p}=y/" .config
+done
+# docker needs the cgroup + namespace bits
+for k in CONFIG_CGROUPS CONFIG_NAMESPACES CONFIG_NET_NS CONFIG_VETH CONFIG_BRIDGE_NETFILTER; do
+    grep -q "^${k}=y" .config || echo "${k}=y" >>.config
+done
+echo "=== docker config injected ==="
+grep -E "^CONFIG_PACKAGE_(docker|dockerd|containerd|runc|luci-app-dockerman)=" .config
 # ---------- Docker: keep images off the small eMMC ----------
 # DOCKER-DATA-ROOT-GUARD
 mkdir -p "${OVERLAY}/etc/uci-defaults"
