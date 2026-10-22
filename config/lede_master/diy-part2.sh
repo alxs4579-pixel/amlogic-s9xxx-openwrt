@@ -42,13 +42,25 @@ mkdir -p "${OVERLAY}"
 IPKDIR=/tmp/custom-ipk
 rm -rf "${IPKDIR}" && mkdir -p "${IPKDIR}"
 
+IPK_FAILED=""
+
 fetch_ipk() {
     # $1 = url, $2 = local filename
-    if wget -q --no-check-certificate -T 60 -O "${IPKDIR}/$2" "$1"; then
-        [ -s "${IPKDIR}/$2" ] && echo "OK   $2" && return 0
-    fi
+    # retry 3 times: github releases occasionally reset the connection mid-transfer
+    i=0
+    while [ $i -lt 3 ]; do
+        if wget -q --no-check-certificate -T 90 -O "${IPKDIR}/$2" "$1"; then
+            if [ -s "${IPKDIR}/$2" ]; then
+                echo "CUSTOM-IPK OK   $2 ($(wc -c <"${IPKDIR}/$2") bytes)"
+                return 0
+            fi
+        fi
+        i=$((i + 1))
+        sleep 3
+    done
     rm -f "${IPKDIR}/$2"
-    echo "FAIL $2"
+    echo "CUSTOM-IPK FAIL $2  <- $1"
+    IPK_FAILED="${IPK_FAILED} $2"
     return 1
 }
 
@@ -81,6 +93,16 @@ for ipk in "${IPKDIR}"/*.ipk; do
         echo "unpack FAILED: $(basename "$ipk")"
     fi
 done
+
+echo "================================================================"
+echo "CUSTOM-IPK SUMMARY"
+echo "  packed : $(ls -1 "${IPKDIR}"/*.ipk 2>/dev/null | wc -l) file(s) in ${OVERLAY}"
+if [ -n "${IPK_FAILED}" ]; then
+    echo "  FAILED :${IPK_FAILED}"
+else
+    echo "  FAILED : none"
+fi
+echo "================================================================"
 
 # Default theme + homepage handling
 mkdir -p "${OVERLAY}/etc/uci-defaults"
